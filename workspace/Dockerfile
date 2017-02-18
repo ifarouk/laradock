@@ -51,7 +51,7 @@ RUN groupadd -g $PGID laradock && \
 # Set Timezone
 #####################################
 
-ARG TZ=UTC
+ARG TZ=Europe/Paris
 ENV TZ ${TZ}
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
@@ -67,7 +67,7 @@ RUN chown -R laradock:laradock /home/laradock/.composer
 USER laradock
 
 # Check if global install need to be ran
-ARG COMPOSER_GLOBAL_INSTALL=false
+ARG COMPOSER_GLOBAL_INSTALL=true
 ENV COMPOSER_GLOBAL_INSTALL ${COMPOSER_GLOBAL_INSTALL}
 RUN if [ ${COMPOSER_GLOBAL_INSTALL} = true ]; then \
     # run the install
@@ -92,7 +92,7 @@ RUN echo "" >> ~/.bashrc && \
     echo "# Load Custom Aliases" >> ~/.bashrc && \
     echo "source /home/laradock/aliases.sh" >> ~/.bashrc && \
     echo "" >> ~/.bashrc
-    
+
 USER root
 RUN echo "" >> ~/.bashrc && \
     echo "# Load Custom Aliases" >> ~/.bashrc && \
@@ -103,7 +103,7 @@ RUN echo "" >> ~/.bashrc && \
 # xDebug:
 #####################################
 
-ARG INSTALL_XDEBUG=false
+ARG INSTALL_XDEBUG=true
 RUN if [ ${INSTALL_XDEBUG} = true ]; then \
     # Load the xdebug extension only with phpunit commands
     apt-get update && \
@@ -117,7 +117,7 @@ COPY ./xdebug.ini /etc/php/7.0/cli/conf.d/xdebug.ini
 #####################################
 # ssh:
 #####################################
-ARG INSTALL_WORKSPACE_SSH=false
+ARG INSTALL_WORKSPACE_SSH=true
 ENV INSTALL_WORKSPACE_SSH ${INSTALL_WORKSPACE_SSH}
 
 ADD insecure_id_rsa /tmp/id_rsa
@@ -137,14 +137,14 @@ RUN if [ ${INSTALL_WORKSPACE_SSH} = true ]; then \
 # MongoDB:
 #####################################
 
-# Check if Mongo needs to be installed
-ARG INSTALL_MONGO=false
-ENV INSTALL_MONGO ${INSTALL_MONGO}
-RUN if [ ${INSTALL_MONGO} = true ]; then \
-    # Install the mongodb extension
-    pecl install mongodb && \
-    echo "extension=mongodb.so" >> /etc/php/7.0/cli/conf.d/30-mongodb.ini \
-;fi
+## Check if Mongo needs to be installed
+#ARG INSTALL_MONGO=false
+#ENV INSTALL_MONGO ${INSTALL_MONGO}
+#RUN if [ ${INSTALL_MONGO} = true ]; then \
+#    # Install the mongodb extension
+#    pecl install mongodb && \
+#    echo "extension=mongodb.so" >> /etc/php/7.0/cli/conf.d/30-mongodb.ini \
+#;fi
 
 #####################################
 # Drush:
@@ -231,52 +231,6 @@ RUN if [ ${INSTALL_YARN} = true ]; then \
 ;fi
 
 #####################################
-# PHP Aerospike:
-#####################################
-USER root
-
-ARG INSTALL_AEROSPIKE_EXTENSION=true
-ENV INSTALL_AEROSPIKE_EXTENSION ${INSTALL_AEROSPIKE_EXTENSION}
-
-# Copy aerospike configration for remote debugging
-COPY ./aerospike.ini /etc/php/7.0/cli/conf.d/aerospike.ini
-
-RUN if [ ${INSTALL_AEROSPIKE_EXTENSION} = true ]; then \
-    # Install the php aerospike extension
-    curl -L -o /tmp/aerospike-client-php.tar.gz "https://github.com/luciano-jr/aerospike-client-php/archive/master.tar.gz" \
-    && mkdir -p aerospike-client-php \
-    && tar -C aerospike-client-php -zxvf /tmp/aerospike-client-php.tar.gz --strip 1 \
-    && ( \
-        cd aerospike-client-php/src/aerospike \
-        && phpize \
-        && ./build.sh \
-        && make install \
-    ) \
-    && rm /tmp/aerospike-client-php.tar.gz \
-;fi
-
-RUN if [ ${INSTALL_AEROSPIKE_EXTENSION} = false ]; then \
-    rm /etc/php/7.0/cli/conf.d/aerospike.ini \
-;fi
-
-#####################################
-# PHP V8JS:
-#####################################
-USER root
-
-ARG INSTALL_V8JS_EXTENSION=false
-ENV INSTALL_V8JS_EXTENSION ${INSTALL_V8JS_EXTENSION}
-
-RUN if [ ${INSTALL_V8JS_EXTENSION} = true ]; then \
-    # Install the php V8JS extension
-    add-apt-repository -y ppa:pinepain/libv8-5.4 \
-    && apt-get update \
-    && apt-get install -y php-dev php-pear libv8-5.4 \
-    && pecl install v8js \
-    && echo "extension=v8js.so" >> /etc/php/7.0/cli/php.ini \
-;fi
-
-#####################################
 # Non-root user : PHPUnit path
 #####################################
 
@@ -297,50 +251,50 @@ RUN echo "" >> ~/.bashrc && \
 #####################################
 # Laravel Envoy:
 #####################################
-USER laradock
+#USER laradock
+#
+#ARG INSTALL_LARAVEL_ENVOY=false
+#ENV INSTALL_LARAVEL_ENVOY ${INSTALL_LARAVEL_ENVOY}
+#
+#RUN if [ ${INSTALL_LARAVEL_ENVOY} = false ]; then \
+#    # Install the Laravel Envoy
+#    echo "" >> ~/.bashrc && \
+#    echo 'export PATH="~/.composer/vendor/bin:$PATH"' >> ~/.bashrc \
+#    && composer global require "laravel/envoy=~1.0" \
+#;fi
 
-ARG INSTALL_LARAVEL_ENVOY=true
-ENV INSTALL_LARAVEL_ENVOY ${INSTALL_LARAVEL_ENVOY}
-
-RUN if [ ${INSTALL_LARAVEL_ENVOY} = true ]; then \
-    # Install the Laravel Envoy
-    echo "" >> ~/.bashrc && \
-    echo 'export PATH="~/.composer/vendor/bin:$PATH"' >> ~/.bashrc \
-    && composer global require "laravel/envoy=~1.0" \
-;fi
-
-#####################################
-# Linuxbrew:
-#####################################
-USER root
-
-ARG INSTALL_LINUXBREW=true
-ENV INSTALL_LINUXBREW ${INSTALL_LINUXBREW}
-
-RUN if [ ${INSTALL_LINUXBREW} = true ]; then \
-
-    # Preparation
-    apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y build-essential make cmake scons curl git \
-      ruby autoconf automake autoconf-archive \
-      gettext libtool flex bison \
-      libbz2-dev libcurl4-openssl-dev \
-      libexpat-dev libncurses-dev && \
-
-    # Install the Linuxbrew
-    git clone https://github.com/Homebrew/linuxbrew.git ~/.linuxbrew && \
-
-    echo "" >> ~/.bashrc && \
-    echo 'export PKG_CONFIG_PATH"=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig:$PKG_CONFIG_PATH"' >> ~/.bashrc && \
-
-    # Setup linuxbrew
-    echo 'export LINUXBREWHOME="$HOME/.linuxbrew"' >> ~/.bashrc && \
-    echo 'export PATH="$LINUXBREWHOME/bin:$PATH"' >> ~/.bashrc && \
-    echo 'export MANPATH="$LINUXBREWHOME/man:$MANPATH"' >> ~/.bashrc && \
-    echo 'export PKG_CONFIG_PATH="$LINUXBREWHOME/lib64/pkgconfig:$LINUXBREWHOME/lib/pkgconfig:$PKG_CONFIG_PATH"' >> ~/.bashrc && \
-    echo 'export LD_LIBRARY_PATH="$LINUXBREWHOME/lib64:$LINUXBREWHOME/lib:$LD_LIBRARY_PATH"' >> ~/.bashrc \
-;fi
+######################################
+## Linuxbrew:
+######################################
+#USER root
+#
+#ARG INSTALL_LINUXBREW=true
+#ENV INSTALL_LINUXBREW ${INSTALL_LINUXBREW}
+#
+#RUN if [ ${INSTALL_LINUXBREW} = true ]; then \
+#
+#    # Preparation
+#    apt-get update && \
+#    apt-get upgrade -y && \
+#    apt-get install -y build-essential make cmake scons curl git \
+#      ruby autoconf automake autoconf-archive \
+#      gettext libtool flex bison \
+#      libbz2-dev libcurl4-openssl-dev \
+#      libexpat-dev libncurses-dev && \
+#
+#    # Install the Linuxbrew
+#    git clone https://github.com/Homebrew/linuxbrew.git ~/.linuxbrew && \
+#
+#    echo "" >> ~/.bashrc && \
+#    echo 'export PKG_CONFIG_PATH"=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig:$PKG_CONFIG_PATH"' >> ~/.bashrc && \
+#
+#    # Setup linuxbrew
+#    echo 'export LINUXBREWHOME="$HOME/.linuxbrew"' >> ~/.bashrc && \
+#    echo 'export PATH="$LINUXBREWHOME/bin:$PATH"' >> ~/.bashrc && \
+#    echo 'export MANPATH="$LINUXBREWHOME/man:$MANPATH"' >> ~/.bashrc && \
+#    echo 'export PKG_CONFIG_PATH="$LINUXBREWHOME/lib64/pkgconfig:$LINUXBREWHOME/lib/pkgconfig:$PKG_CONFIG_PATH"' >> ~/.bashrc && \
+#    echo 'export LD_LIBRARY_PATH="$LINUXBREWHOME/lib64:$LINUXBREWHOME/lib:$LD_LIBRARY_PATH"' >> ~/.bashrc \
+#;fi
 
 #
 #--------------------------------------------------------------------------
